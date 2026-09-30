@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IRD Prize Coupon Checker</title>
+<style>
+  :root {
+    --blue: #1f7ae0;
+    --blue-dark: #1259a8;
+    --green: #1a7f37;
+    --red: #b42318;
+    --bg: #eaf4fc;
+    --card: #ffffff;
+    --border: #cfe3f5;
+    --text: #16324a;
+    --muted: #5f7f95;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* --- subtle floating background shapes, purely decorative --- */
+  .bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.35;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .bg-blob.b1 {
+    width: 320px; height: 320px;
+    background: #79c1f2;
+    top: -80px; left: -100px;
+    animation: floatA 16s ease-in-out infinite;
+  }
+  .bg-blob.b2 {
+    width: 260px; height: 260px;
+    background: #a9d8f7;
+    bottom: -60px; right: -80px;
+    animation: floatB 20s ease-in-out infinite;
+  }
+  .bg-blob.b3 {
+    width: 180px; height: 180px;
+    background: #cfe9fb;
+    top: 40%; right: 10%;
+    animation: floatA 24s ease-in-out infinite reverse;
+  }
+  @keyframes floatA {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(30px, 40px); }
+  }
+  @keyframes floatB {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-30px, -25px); }
+  }
+
+  /* --- small random shapes that twitch (quick jittery motion), purely decorative --- */
+  .twitch-shape {
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+    background: #bcdff5;
+    opacity: 0.5;
+  }
+  .twitch-shape.line { height: 2px; background: #9cc9ec; }
+  .twitch-shape.dot { border-radius: 50%; }
+  .twitch-shape.square { border-radius: 3px; transform: rotate(20deg); }
+  @keyframes twitch {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    12% { transform: translate(2px, -3px) rotate(2deg); }
+    24% { transform: translate(-3px, 1px) rotate(-1deg); }
+    36% { transform: translate(1px, 3px) rotate(1deg); }
+    48% { transform: translate(-2px, -2px) rotate(-2deg); }
+    60% { transform: translate(3px, 1px) rotate(1deg); }
+    72% { transform: translate(-1px, -3px) rotate(-1deg); }
+    84% { transform: translate(2px, 2px) rotate(2deg); }
+  }
+
+  .wrap { max-width: 800px; margin: 0 auto; position: relative; }
+  h1 { font-size: 22px; margin-bottom: 4px; color: var(--blue-dark); }
+  .sub { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(31, 122, 224, 0.06);
+    animation: fadeIn 0.5s ease both;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--blue-dark); }
+  textarea, input[type=text] {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fbfdff;
+    color: var(--text);
+  }
+  textarea:focus, input[type=text]:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(31, 122, 224, 0.12);
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  button {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover { background: var(--blue-dark); }
+  button:active { transform: scale(0.98); }
+  button.secondary { background: #eaf4fc; color: var(--blue-dark); border: 1px solid var(--border); }
+  button.secondary:hover { background: #dcedfa; }
+  button.danger { background: var(--red); }
+  button.refresh { background: var(--blue); }
+  ul.coupons { list-style: none; padding: 0; margin: 0; }
+  li.coupon {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  li.coupon:last-child { border-bottom: none; }
+  .code { font-family: "SF Mono", Menlo, monospace; font-size: 14px; }
+  .matched { color: var(--green); font-weight: 600; }
+  .badge {
+    background: var(--green);
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    margin-left: 8px;
+  }
+  .note { color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 10px 0; }
+  form.inline { display: inline; }
+  #status { font-size: 13px; margin-top: 10px; color: var(--muted); }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  pre#rawtext {
+    white-space: pre-wrap;
+    background: #f5fafd;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 300px;
+    overflow: auto;
+    font-size: 12px;
+  }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 0; margin: 0; }
+  .del-btn:hover { color: var(--red); }
+
+  /* --- compact grid for winner codes, rows & columns instead of one-per-line --- */
+  .winners-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .winner-chip {
+    background: #f2f9ff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    text-align: center;
+    word-break: break-all;
+  }
+  .winner-chip.mine {
+    background: #e6f4ea;
+    border-color: var(--green);
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* --- compact grid for your own saved coupons --- */
+  .coupons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .coupon-chip {
+    background: #f9fbfd;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .coupon-chip .code { font-size: 12px; }
+  .coupon-chip .chip-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .coupon-chip .note, .coupon-chip .tiny { font-size: 10px; color: var(--muted); }
+
+  .refresh-icon {
+    display: inline-block;
+    margin-right: 6px;
+  }
+  .refresh-icon.spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-blob b1"></div>
+<div class="bg-blob b2"></div>
+<div class="bg-blob b3"></div>
+
+<div class="wrap">
+  <h1>IRD Prize Coupon Checker</h1>
+  <div class="sub">Compares your coupon codes against winners on prize.ird.gov.np</div>
+
+  <div class="card">
+    <h2>Add your coupon code(s)</h2>
+    <form action="/coupons/add" method="post">
+      <textarea name="codes" placeholder="One code per line, e.g.&#10;007 315 254 493&#10;123 456 789 012" required></textarea>
+      <input type="text" name="note" placeholder="Optional note (e.g. 'Sep grocery bill')" style="margin-top:8px;">
+      <label style="font-size:13px;color:var(--muted);margin-top:8px;display:block;">
+        Claim deadline (optional) — if set, this coupon can be auto-removed once the date passes
+      </label>
+      <input type="date" name="expiry_date" style="margin-top:4px;">
+      <button type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Your coupon codes ({{ coupons|length }})</h2>
+    {% if expired_count > 0 %}
+    <form action="/coupons/delete_expired" method="post" style="margin-bottom:12px;" onsubmit="return confirm('Remove {{ expired_count }} expired coupon(s)? This cannot be undone.');">
+      <button type="submit" class="danger">Remove {{ expired_count }} expired coupon(s)</button>
+    </form>
+    {% endif %}
+    {% if coupons %}
+    <div class="coupons-grid">
+      {% for c in coupons %}
+      <div class="coupon-chip">
+        <div class="chip-top">
+          <span class="code {% if c.matched %}matched{% endif %}">{{ c.code }}</span>
+          <form class="inline" action="/coupons/delete/{{ c.id }}" method="post" onsubmit="return confirm('Remove this code?');">
+            <button type="submit" class="del-btn">✕</button>
+          </form>
+        </div>
+        {% if c.matched %}<span class="badge" style="width:fit-content;">WINNER</span>{% endif %}
+        {% if c.expiry_date and c.expiry_date < today %}<span class="badge" style="background:var(--red);width:fit-content;">EXPIRED</span>{% endif %}
+        {% if c.note %}<span class="note">{{ c.note }}</span>{% endif %}
+        {% if c.expiry_date %}<span class="tiny">claim by {{ c.expiry_date }}</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No coupon codes added yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Check against current winners</h2>
+    <button class="refresh" onclick="doRefresh()">
+      <span class="refresh-icon" id="refresh-icon">↻</span>Refresh &amp; Check Now
+    </button>
+    <div id="status">
+      {% if last_fetch %}
+        Last checked: {{ last_fetch.fetched_at }} —
+        {% if last_fetch.success %}
+          found {{ last_fetch.winner_count }} winning code(s) on the site.
+        {% else %}
+          <span style="color:#b42318">fetch failed (see Settings/debug below)</span>
+        {% endif %}
+      {% else %}
+        Never checked yet.
+      {% endif %}
+    </div>
+    <details>
+      <summary>Show raw fetched text (for debugging the scraper)</summary>
+      <pre id="rawtext">{{ last_fetch.raw_text if last_fetch else '' }}</pre>
+      <div class="sub" style="margin-top:8px;">
+        A screenshot of what the headless browser actually loaded is also
+        saved to <code>debug_screenshot.png</code> in this app's folder after
+        every refresh — open it in File Explorer / any image viewer to see
+        exactly what was on the page.
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>Result</h2>
+    <div id="result-box" style="padding:16px; border-radius:8px; font-size:16px; font-weight:600; text-align:center;
+      {% if last_fetch and last_fetch.success %}
+        {% if last_fetch.match_found %}
+          background:#e6f4ea; color:var(--green); border:1px solid var(--green);
+        {% else %}
+          background:#fbeaea; color:var(--red); border:1px solid var(--red);
+        {% endif %}
+      {% else %}
+        background:#f2f7fb; color:var(--muted); border:1px solid var(--border);
+      {% endif %}">
+      <span id="result-text">
+      {% if last_fetch and last_fetch.success %}
+        {% if last_fetch.match_found %}
+          🎉 Match found! ({{ last_fetch.matched_codes }})
+        {% else %}
+          No match found.
+        {% endif %}
+      {% else %}
+        Not checked yet — click "Refresh & Check Now" above.
+      {% endif %}
+      </span>
+      {% if last_fetch and last_fetch.success %}
+      <div id="last-checked" data-ts="{{ last_fetch.fetched_at }}"
+           style="font-size:12px; font-weight:400; margin-top:6px; opacity:0.8;"></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Latest winning codes retrieved from prize.ird.gov.np</h2>
+    {% if winners %}
+    <div class="sub" style="margin-bottom:10px;">
+      From the last successful check ({{ last_fetch.fetched_at }}), {{ winners|length }} code(s) still within their claim deadline. Yours are highlighted green.
+    </div>
+    <div class="winners-grid">
+      {% for w in winners %}
+      <div class="winner-chip {% if w.is_yours %}mine{% endif %}" {% if w.deadline %}title="Claim by: {{ w.deadline }}"{% endif %}>{{ w.code }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No winning codes retrieved yet — click "Refresh & Check Now" above.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Settings (advanced)</h2>
+    <div class="sub" style="margin-bottom:12px;">
+      If "Refresh & Check" finds 0 codes but the site clearly lists winners,
+      open the raw text above, find the real coupon format, and adjust the
+      pattern below. No coding needed — just a regular expression.
+    </div>
+    <form action="/settings" method="post">
+      <label style="font-size:13px;color:var(--muted)">Regex pattern for coupon codes</label>
+      <input type="text" name="pattern" value="{{ pattern }}">
+      <label style="font-size:13px;color:var(--muted);margin-top:8px;display:block;">
+        CSS selector to narrow the search (optional, leave blank to search whole page)
+      </label>
+      <input type="text" name="selector" value="{{ selector }}" placeholder="e.g. .winner-list .coupon-code">
+      <button type="submit" class="secondary">Save Settings</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// --- "Last checked X ago" text in the result box, kept live ---
+function timeAgo(date) {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 45) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return mins + (mins === 1 ? ' min ago' : ' mins ago');
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + (hrs === 1 ? ' hr ago' : ' hrs ago');
+  const days = Math.floor(hrs / 24);
+  return days + (days === 1 ? ' day ago' : ' days ago');
+}
+function updateLastChecked() {
+  const el = document.getElementById('last-checked');
+  if (!el) return;
+  const d = new Date(el.dataset.ts);
+  if (isNaN(d.getTime())) return;
+  el.textContent = 'Last checked ' + timeAgo(d);
+  el.title = d.toLocaleString();
+}
+updateLastChecked();
+setInterval(updateLastChecked, 30000);
+
+// --- Randomly placed, gently twitching decorative shapes (fills empty background) ---
+(function createTwitchShapes() {
+  const container = document.body;
+  const shapeCount = 10;
+  const kinds = ['line', 'dot', 'square'];
+  for (let i = 0; i < shapeCount; i++) {
+    const el = document.createElement('div');
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    el.className = 'twitch-shape ' + kind;
+
+    const top = Math.random() * 95;
+    const left = Math.random() * 95;
+    el.style.top = top + 'vh';
+    el.style.left = left + 'vw';
+
+    if (kind === 'line') {
+      el.style.width = (30 + Math.random() * 60) + 'px';
+      el.style.transform = 'rotate(' + Math.floor(Math.random() * 180) + 'deg)';
+    } else {
+      const size = 6 + Math.random() * 16;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+    }
+
+    el.style.animation = 'twitch ' + (2.5 + Math.random() * 3) + 's steps(1) infinite';
+    el.style.animationDelay = (Math.random() * 4) + 's';
+    container.appendChild(el);
+  }
+})();
+
+// --- Show a popup if the last "Add coupon" submission included duplicates ---
+(function checkForDuplicates() {
+  const params = new URLSearchParams(window.location.search);
+  const dup = params.get('dup');
+  if (dup) {
+    const codes = dup.split(',').map(c => c.trim()).filter(Boolean);
+    if (codes.length === 1) {
+      alert('Value already exists.\n\n' + codes[0] + ' was already in your list, so it wasn\'t added again.');
+    } else {
+      alert('Value already exists.\n\nThese codes were already in your list, so they weren\'t added again:\n' + codes.join('\n'));
+    }
+    // clean the URL so refreshing the page doesn't show the popup again
+    params.delete('dup');
+    const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState({}, '', newUrl);
+  }
+})();
+
+async function doRefresh() {
+  const statusEl = document.getElementById('status');
+  const icon = document.getElementById('refresh-icon');
+  icon.classList.add('spin');
+  statusEl.textContent = 'Checking… (this opens a headless browser and can take 10-20 seconds)';
+  try {
+    const res = await fetch('/refresh', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      let msg = `Checked at ${data.fetched_at} — found ${data.winner_count} winning code(s).`;
+      if (data.newly_matched && data.newly_matched.length) {
+        msg += ` 🎉 New match(es): ${data.newly_matched.join(', ')}`;
+      }
+      statusEl.textContent = msg;
+      document.getElementById('rawtext').textContent = data.raw_text;
+
+      const box = document.getElementById('result-box');
+      if (data.any_match) {
+        box.style.background = '#e6f4ea';
+        box.style.color = '#1a7f37';
+        box.style.border = '1px solid #1a7f37';
+        document.getElementById('result-text').textContent = `🎉 Match found! (${data.matched_codes.join(', ')})`;
+      } else {
+        box.style.background = '#fbeaea';
+        box.style.color = '#b42318';
+        box.style.border = '1px solid #b42318';
+        document.getElementById('result-text').textContent = 'No match found.';
+      }
+
+      setTimeout(() => location.reload(), 800);
+    } else {
+      statusEl.textContent = 'Fetch failed: ' + data.error;
+      icon.classList.remove('spin');
+    }
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e;
+    icon.classList.remove('spin');
+  }
+}
+</script>
+</body>
+</html>
